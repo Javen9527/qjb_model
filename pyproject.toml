@@ -1,0 +1,10 @@
+[project]
+name = "qjb-model"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "jsonargparse[signatures]>=4.27.7",
+    "pytorch-lightning>=2.6.1",
+]
