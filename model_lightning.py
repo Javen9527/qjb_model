@@ -20,6 +20,9 @@ class MyModel(LightningModule):
             nn.ReLU(),
             nn.Linear(hidden_dim, 1)
         )
+        
+    def configure_optimizers(self):
+        return torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
 
     def forward(self, x):
         return self.model(x)
@@ -31,6 +34,14 @@ class MyModel(LightningModule):
         self.log("train_loss", loss, prog_bar=True)
         return loss
     
+    def test_step(self, batch, batch_idx):
+        x, y = batch
+        pred = self(x)
+        test_loss = nn.MSELoss()(pred, y)
+
+        self.log("test_loss", test_loss, prog_bar=True, sync_dist=True)
+        return {"test_loss": test_loss, "preds": pred, "labels": y}
+    
     def predict_step(self, batch, batch_idx):
         x = batch[0] if isinstance(batch, (list, tuple)) else batch
         pred = self(x)
@@ -40,10 +51,6 @@ class MyModel(LightningModule):
         print(f"batch predict[:5]: {pred[:5].numpy().flatten()}")
         return pred
     
-    def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
-    
-    # 可选：训练结束后手动保存最优模型权重
     def on_train_end(self):
         # 从 Trainer 中获取自动保存的最优 checkpoint 路径
         best_ckpt_path = self.trainer.checkpoint_callback.best_model_path
@@ -54,6 +61,9 @@ class MyModel(LightningModule):
             best_model = MyModel.load_from_checkpoint(best_ckpt_path)
             torch.save(best_model.state_dict(), f"{save_dir}/best_model_weights.pth")
             print(f"\nsave best model weights: {save_dir}/best_model_weights.pth")
+
+    def on_test_end(self):
+        pass
 
     def on_predict_end(self):
         pass
