@@ -10,6 +10,9 @@ from pytorch_lightning import LightningModule, Trainer
 from pytorch_lightning.core.datamodule import LightningDataModule
 from pytorch_lightning.cli import LightningCLI
 
+torch.set_num_threads(1)  # 模型计算的CPU线程数
+torch.set_num_interop_threads(1)  # 跨操作线程数
+
 class MyModel(LightningModule):
     def __init__(self, lr:float=0.001, hidden_dim=128):
         super().__init__()
@@ -69,7 +72,7 @@ class MyModel(LightningModule):
         pass
 
 class MyData(LightningDataModule):
-    def __init__(self, batch_size:int=32):
+    def __init__(self, batch_size:int=32, num_workers:int=1):
         super().__init__()
         self.save_hyperparameters()
 
@@ -85,13 +88,13 @@ class MyData(LightningDataModule):
             self.predict_data = TensorDataset(torch.randn(50, 10))  # 50条无标签数据
 
     def train_dataloader(self):
-        return DataLoader(self.train_data, batch_size=self.hparams.batch_size, shuffle=True)
+        return DataLoader(self.train_data, batch_size=self.hparams.batch_size, num_workers=self.hparams.num_workers, shuffle=True)
     
     def test_dataloader(self):
-        return DataLoader(self.test_data, batch_size=self.hparams.batch_size)
+        return DataLoader(self.test_data, batch_size=self.hparams.batch_size, num_workers=self.hparams.num_workers)
     
     def predict_dataloader(self):
-        return DataLoader(self.predict_data, batch_size=self.hparams.batch_size)
+        return DataLoader(self.predict_data, batch_size=self.hparams.batch_size, num_workers=self.hparams.num_workers)
 
 ## NOTE trainer块直接挪到yaml中进行配置
 
