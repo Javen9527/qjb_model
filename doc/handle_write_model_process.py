@@ -1,5 +1,5 @@
 """
-纯手写模型训练
+纯手写模型训练流程, 仅用作对比学习本代码仓中的LightningCLI框架
 """
 import torch
 import torch.nn as nn
