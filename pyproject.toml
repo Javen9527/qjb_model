@@ -7,4 +7,5 @@ requires-python = ">=3.14"
 dependencies = [
     "jsonargparse[signatures]>=4.27.7",
     "pytorch-lightning>=2.6.1",
+    "Pillow>=10.0.0",
 ]
