@@ -3,12 +3,15 @@
 支持指定数据路径：文件夹（PNG/JPG 等图片）或 .pt / .npy 文件，或使用合成数据。
 """
 
+import logging
 import pathlib
 import torch
 import numpy as np
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 from pytorch_lightning.core.datamodule import LightningDataModule
+
+log = logging.getLogger(__name__)
 
 # 支持的图片后缀
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp", ".tiff", ".tif"}
@@ -57,7 +60,9 @@ class ImageFolderDataset(Dataset):
             if p.is_file() and p.suffix.lower() in self.extensions
         ])
         if not self.files:
+            log.error("在 %s 下未找到图片（支持: %s）", root, self.extensions)
             raise FileNotFoundError(f"在 {root} 下未找到图片文件（支持: {self.extensions}）")
+        log.debug("ImageFolderDataset: root=%s, 共 %d 张图片", root, len(self.files))
 
     def __len__(self):
         return len(self.files)
@@ -70,11 +75,14 @@ def _load_from_path(path: str, img_size: int | None = None, grayscale: bool = Tr
     """从路径加载数据。支持文件夹（图片）或 .pt / .pth / .npy 文件。"""
     path = pathlib.Path(path)
     if not path.exists():
+        log.error("数据路径不存在: %s", path)
         raise FileNotFoundError(f"数据路径不存在: {path}")
 
     if path.is_dir():
+        log.info("从文件夹加载数据: %s", path)
         return ImageFolderDataset(str(path), img_size=img_size, grayscale=grayscale)
 
+    log.info("从文件加载数据: %s", path)
     suffix = path.suffix.lower()
     if suffix in (".pt", ".pth"):
         data = torch.load(path, map_location="cpu", weights_only=True)
@@ -141,6 +149,7 @@ class UnconstrainedDiffusionData(LightningDataModule):
     ):
         super().__init__()
         self.save_hyperparameters()
+        log.debug("UnconstrainedDiffusionData 初始化: batch_size=%s, img_size=%s", batch_size, img_size)
 
     _STAGE_TO_PATH = {"fit": "train_data_path", "test": "test_data_path", "predict": "predict_data_path"}
 
@@ -151,12 +160,14 @@ class UnconstrainedDiffusionData(LightningDataModule):
         fallback = hp.train_samples if stage == "fit" else (hp.test_samples if stage == "test" else hp.predict_samples)
 
         if path:
+            log.info("stage=%s 从路径加载: %s", stage, path)
             ds = _load_from_path(path, img_size=hp.img_size, grayscale=hp.grayscale)
             if isinstance(ds, TensorDataset):
                 data = ds.tensors[0]
                 data = _to_nchw(data)
                 return TensorDataset(data)
             return ds
+        log.debug("stage=%s 使用合成数据, samples=%s", stage, fallback)
         return SyntheticImageDataset(
             num_samples=fallback,
             img_size=hp.img_size,
@@ -168,12 +179,16 @@ class UnconstrainedDiffusionData(LightningDataModule):
         pass
 
     def setup(self, stage: str | None = None):
+        log.info("UnconstrainedDiffusionData setup stage=%s", stage)
         if stage == "fit" or stage is None:
             self.train_data = self._make_dataset("fit")
+            log.info("train_data 样本数: %d", len(self.train_data))
         if stage == "test" or stage is None:
             self.test_data = self._make_dataset("test")
+            log.info("test_data 样本数: %d", len(self.test_data))
         if stage == "predict" or stage is None:
             self.predict_data = self._make_dataset("predict")
+            log.info("predict_data 样本数: %d", len(self.predict_data))
 
     def train_dataloader(self):
         return DataLoader(

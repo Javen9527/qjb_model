@@ -3,6 +3,7 @@
 基于类别标签等条件的 DDPM。
 """
 
+import logging
 import math
 import pathlib
 import time
@@ -15,6 +16,8 @@ from .unconstrained_diffusion_model import (
     timestep_embedding,
     ResBlock,
 )
+
+log = logging.getLogger(__name__)
 
 
 class ConditionalUNet(nn.Module):
@@ -101,6 +104,7 @@ class ConditionalDiffusionModel(LightningModule):
     ):
         super().__init__()
         self.save_hyperparameters()
+        log.info("ConditionalDiffusionModel 初始化: lr=%s, num_classes=%s, timesteps=%s", lr, num_classes, timesteps)
 
         self.unet = ConditionalUNet(
             in_ch=in_channels,
@@ -177,7 +181,7 @@ class ConditionalDiffusionModel(LightningModule):
             step_indices = torch.linspace(self.timesteps - 1, 0, steps).long().tolist()
         else:
             step_indices = list(reversed(range(self.timesteps)))
-        print(f"[diffusion] sample start: shape={shape}, steps={len(step_indices)}", flush=True)
+        log.info("sample 开始: shape=%s, steps=%d", shape, len(step_indices))
         t0 = time.perf_counter()
         x = torch.randn(shape, device=device)
         for i, t in enumerate(step_indices):
@@ -194,8 +198,8 @@ class ConditionalDiffusionModel(LightningModule):
                 sigma = torch.sqrt(beta * coef)
                 x = x + sigma * torch.randn_like(x, device=device)
             if (i + 1) % 100 == 0 or i == len(step_indices) - 1:
-                print(f"[diffusion] sample progress: {i+1}/{len(step_indices)}, elapsed {time.perf_counter()-t0:.1f}s", flush=True)
-        print(f"[diffusion] sample done: {time.perf_counter()-t0:.1f}s", flush=True)
+                log.info("sample 进度: %d/%d, 已用 %.1fs", i + 1, len(step_indices), time.perf_counter() - t0)
+        log.info("sample 完成: 总耗时 %.1fs", time.perf_counter() - t0)
         return x
 
     def predict_step(self, batch, batch_idx):
@@ -203,12 +207,14 @@ class ConditionalDiffusionModel(LightningModule):
         x, y = batch
         cond = y.long().squeeze(-1).clamp(0, self.num_classes - 1)
         shape = x.shape
-        print(f"[diffusion] predict_step batch_idx={batch_idx} shape={shape}", flush=True)
+        log.info("predict_step batch_idx=%d shape=%s", batch_idx, shape)
         samples = self.sample(shape, cond)
         if self.hparams.save_predictions:
+            save_dir = self.hparams.predict_save_dir or str(pathlib.Path(self.trainer.default_root_dir) / "predictions")
+            log.info("保存推理结果到 %s", save_dir)
             _save_tensor_as_images(
                 samples,
-                self.hparams.predict_save_dir or str(pathlib.Path(self.trainer.default_root_dir) / "predictions"),
+                save_dir,
                 batch_idx,
             )
         return samples

@@ -3,6 +3,7 @@
 Denoising Diffusion Probabilistic Model，无条件生成。
 """
 
+import logging
 import math
 import pathlib
 import time
@@ -11,9 +12,11 @@ import torch.nn as nn
 from PIL import Image
 from pytorch_lightning import LightningModule
 
+log = logging.getLogger(__name__)
 
-def _save_tensor_as_images(tensor: torch.Tensor, save_dir: str, batch_idx: int):
-    """将 (B,C,H,W) 张量 [-1,1] 保存为 PNG 图片。"""
+
+def _save_tensor_as_images(tensor: torch.Tensor, save_dir: str, batch_idx: int, scale: int = 1):
+    """将 (B,C,H,W) 张量保存为 PNG 图片。"""
     save_path = pathlib.Path(save_dir)
     save_path.mkdir(parents=True, exist_ok=True)
     x = tensor.detach().cpu().float()
@@ -26,6 +29,7 @@ def _save_tensor_as_images(tensor: torch.Tensor, save_dir: str, batch_idx: int):
         else:
             img = img.transpose(1, 2, 0)
         Image.fromarray(img).save(save_path / f"batch{batch_idx:04d}_idx{i:04d}.png")
+    log.debug("已保存 %d 张图片到 %s", x.shape[0], save_path)
 
 
 def timestep_embedding(timesteps, dim):
@@ -135,6 +139,7 @@ class UnconstrainedDiffusionModel(LightningModule):
     ):
         super().__init__()
         self.save_hyperparameters()
+        log.info("UnconstrainedDiffusionModel 初始化: lr=%s, img_size=%s, timesteps=%s", lr, img_size, timesteps)
 
         self.unet = UNet(
             in_ch=in_channels,
@@ -188,6 +193,8 @@ class UnconstrainedDiffusionModel(LightningModule):
     def training_step(self, batch, batch_idx):
         loss = self._get_loss(batch)
         self.log("train_loss", loss, prog_bar=True)
+        if batch_idx == 0 and self.global_step == 0:
+            log.debug("training_step 首 batch: loss=%.6f", loss.item())
         return loss
 
     def test_step(self, batch, batch_idx):
@@ -204,7 +211,7 @@ class UnconstrainedDiffusionModel(LightningModule):
             step_indices = torch.linspace(self.timesteps - 1, 0, steps).long().tolist()
         else:
             step_indices = list(reversed(range(self.timesteps)))
-        print(f"[diffusion] sample start: shape={shape}, steps={len(step_indices)} (orig={self.timesteps})", flush=True)
+        log.info("sample 开始: shape=%s, steps=%d (orig=%d)", shape, len(step_indices), self.timesteps)
         t0 = time.perf_counter()
         x = torch.randn(shape, device=device)
         for i, t in enumerate(step_indices):
@@ -222,19 +229,21 @@ class UnconstrainedDiffusionModel(LightningModule):
                 x = x + sigma * torch.randn_like(x, device=device)
             if (i + 1) % 100 == 0 or i == len(step_indices) - 1:
                 elapsed = time.perf_counter() - t0
-                print(f"[diffusion] sample progress: {i+1}/{len(step_indices)} steps, elapsed {elapsed:.1f}s", flush=True)
-        print(f"[diffusion] sample done: total {time.perf_counter() - t0:.1f}s", flush=True)
+                log.info("sample 进度: %d/%d steps, 已用 %.1fs", i + 1, len(step_indices), elapsed)
+        log.info("sample 完成: 总耗时 %.1fs", time.perf_counter() - t0)
         return x
 
     def predict_step(self, batch, batch_idx):
         x = batch[0] if isinstance(batch, (list, tuple)) else batch
         shape = x.shape
-        print(f"[diffusion] predict_step batch_idx={batch_idx} shape={shape}", flush=True)
+        log.info("predict_step batch_idx=%d shape=%s", batch_idx, shape)
         samples = self.sample(shape)
         if self.hparams.save_predictions:
+            save_dir = self.hparams.predict_save_dir or str(pathlib.Path(self.trainer.default_root_dir) / "predictions")
+            log.info("保存推理结果到 %s", save_dir)
             _save_tensor_as_images(
                 samples,
-                self.hparams.predict_save_dir or str(pathlib.Path(self.trainer.default_root_dir) / "predictions"),
+                save_dir,
                 batch_idx,
             )
         return samples

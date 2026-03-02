@@ -1,14 +1,17 @@
-
+import logging
 import os
 import torch
 import torch.nn as nn
 from pytorch_lightning import LightningModule, Trainer
 
+log = logging.getLogger(__name__)
+
 
 class SimpleModel(LightningModule):
-    def __init__(self, lr:float=0.001, hidden_dim=128):
+    def __init__(self, lr: float = 0.001, hidden_dim=128):
         super().__init__()
         self.save_hyperparameters()
+        log.info("SimpleModel 初始化: lr=%s, hidden_dim=%s", lr, hidden_dim)
 
         self.model = nn.Sequential(
             nn.Linear(10, hidden_dim),
@@ -41,9 +44,7 @@ class SimpleModel(LightningModule):
         x = batch[0] if isinstance(batch, (list, tuple)) else batch
         pred = self(x)
 
-        print(f"\nPredict batch {batch_idx+1}")
-        print(f"batch shape: {pred.shape}")
-        print(f"batch predict[:5]: {pred[:5].numpy().flatten()}")
+        log.info("predict batch_idx=%d shape=%s pred[:5]=%s", batch_idx + 1, pred.shape, pred[:5].detach().cpu().numpy().flatten())
         return pred
     
     def on_train_end(self):
@@ -55,7 +56,7 @@ class SimpleModel(LightningModule):
             # 加载最优模型并保存纯权重
             best_model = SimpleModel.load_from_checkpoint(best_ckpt_path)
             torch.save(best_model.state_dict(), f"{save_dir}/best_model_weights.pth")
-            print(f"\nsave best model weights: {save_dir}/best_model_weights.pth")
+            log.info("已保存最优模型权重: %s/best_model_weights.pth", save_dir)
 
     def on_test_end(self):
         pass

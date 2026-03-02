@@ -1,13 +1,19 @@
 """
-基于lightning框架的模型训练
+基于 Lightning 框架的模型训练/测试/推理入口。
 """
+import logging
 import torch
 from pytorch_lightning.cli import LightningCLI
 
-torch.set_num_threads(1)  # 模型计算的CPU线程数
-torch.set_num_interop_threads(1)  # 跨操作线程数
+from config.logging_config import setup_logging
 
-## NOTE trainer是CLI框架定义好的类，用户无需定义，直接到yaml中进行配置
+log = logging.getLogger(__name__)
 
-if __name__ == '__main__':
+torch.set_num_threads(1)
+torch.set_num_interop_threads(1)
+
+if __name__ == "__main__":
+    setup_logging()
+    log.info("启动 LightningCLI")
     cli = LightningCLI(save_config_kwargs={"overwrite": True})
+    log.info("CLI 执行完成")

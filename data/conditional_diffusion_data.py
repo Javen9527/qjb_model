@@ -3,12 +3,15 @@
 支持指定数据路径：文件夹（子目录名=类别，内含 PNG/JPG 等）或 .pt/.npy 文件，或使用合成数据。
 """
 
+import logging
 import pathlib
 import torch
 import numpy as np
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset, TensorDataset
 from pytorch_lightning.core.datamodule import LightningDataModule
+
+log = logging.getLogger(__name__)
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp", ".tiff", ".tif"}
 
@@ -67,7 +70,9 @@ class ImageFolderConditionalDataset(Dataset):
                     self.samples.append((p, idx))
 
         if not self.samples:
+            log.error("在 %s 下未找到图片（需子目录结构）", root)
             raise FileNotFoundError(f"在 {root} 下未找到图片（需子目录结构，支持: {IMAGE_EXTENSIONS}）")
+        log.debug("ImageFolderConditionalDataset: root=%s, classes=%s, 共 %d 样本", root, self.classes, len(self.samples))
 
     def __len__(self):
         return len(self.samples)
@@ -89,9 +94,11 @@ def _load_conditional_from_path(
         raise FileNotFoundError(f"数据路径不存在: {path}")
 
     if path.is_dir():
+        log.info("从文件夹加载条件数据: %s", path)
         return ImageFolderConditionalDataset(str(path), img_size=img_size, grayscale=grayscale)
 
     suffix = path.suffix.lower()
+    log.info("从文件加载条件数据: %s", path)
     if suffix not in (".pt", ".pth", ".npy"):
         raise ValueError(f"不支持的文件格式: {suffix}，请使用文件夹或 .pt / .pth / .npy")
 
@@ -187,6 +194,7 @@ class ConditionalDiffusionData(LightningDataModule):
     ):
         super().__init__()
         self.save_hyperparameters()
+        log.debug("ConditionalDiffusionData 初始化: batch_size=%s, num_classes=%s", batch_size, num_classes)
 
     _STAGE_TO_PATH = {"fit": "train_data_path", "test": "test_data_path", "predict": "predict_data_path"}
 
@@ -197,6 +205,7 @@ class ConditionalDiffusionData(LightningDataModule):
         fallback = hp.train_samples if stage == "fit" else (hp.test_samples if stage == "test" else hp.predict_samples)
 
         if path:
+            log.info("stage=%s 从路径加载: %s", stage, path)
             result = _load_conditional_from_path(
                 path,
                 img_size=hp.img_size,
@@ -212,6 +221,7 @@ class ConditionalDiffusionData(LightningDataModule):
                 raise ValueError(f"x 与 y 样本数不一致: {x.size(0)} vs {y.size(0)}")
             return TensorDataset(x, y)
 
+        log.debug("stage=%s 使用合成数据, samples=%s", stage, fallback)
         return SyntheticConditionalDataset(
             num_samples=fallback,
             num_classes=hp.num_classes,
@@ -224,12 +234,16 @@ class ConditionalDiffusionData(LightningDataModule):
         pass
 
     def setup(self, stage: str | None = None):
+        log.info("ConditionalDiffusionData setup stage=%s", stage)
         if stage == "fit" or stage is None:
             self.train_data = self._make_dataset("fit")
+            log.info("train_data 样本数: %d", len(self.train_data))
         if stage == "test" or stage is None:
             self.test_data = self._make_dataset("test")
+            log.info("test_data 样本数: %d", len(self.test_data))
         if stage == "predict" or stage is None:
             self.predict_data = self._make_dataset("predict")
+            log.info("predict_data 样本数: %d", len(self.predict_data))
 
     def train_dataloader(self):
         return DataLoader(
