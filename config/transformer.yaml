@@ -1,0 +1,48 @@
+trainer:
+  max_epochs: 20
+  accelerator: "cpu"
+  log_every_n_steps: 10
+  default_root_dir: "./logs_transformer"
+  enable_checkpointing: true
+
+  callbacks:
+    - class_path: pytorch_lightning.callbacks.ModelCheckpoint
+      init_args:
+        dirpath: "./logs_transformer/checkpoints"
+        filename: "transformer_best_{epoch}_{train_loss:.4f}"
+        monitor: "train_loss"
+        mode: "min"
+        save_top_k: 1
+        save_last: true
+        every_n_epochs: 1
+
+model:
+  class_path: model.TransformerModel
+  init_args:
+    vocab_size: 1000
+    d_model: 128
+    nhead: 4
+    num_encoder_layers: 3
+    num_decoder_layers: 3
+    dim_feedforward: 512
+    dropout: 0.1
+    padding_idx: 0
+    max_len: 128
+    lr: 0.0001
+
+data:
+  class_path: data.TransformerData
+  init_args:
+    batch_size: 64
+    num_workers: 0
+    src_len: 20
+    tgt_len: 20
+    vocab_size: 1000
+    padding_idx: 0
+    train_samples: 10000
+    test_samples: 1000
+    predict_samples: 100
+    seed: 42
+    # train_data_path: null
+    # test_data_path: null
+    # predict_data_path: null

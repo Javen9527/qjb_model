@@ -5,6 +5,9 @@ from torch.utils.data import DataLoader, TensorDataset
 
 from pytorch_lightning.core.datamodule import LightningDataModule
 
+log = logging.getLogger(__name__)
+
+
 class SimpleData(LightningDataModule):
     def __init__(self, batch_size:int=32, num_workers:int=1):
         super().__init__()

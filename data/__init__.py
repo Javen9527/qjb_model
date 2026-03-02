@@ -1,3 +1,4 @@
 from .simple_data import SimpleData
 from .unconstrained_diffusion_data import UnconstrainedDiffusionData
 from .conditional_diffusion_data import ConditionalDiffusionData
+from .transformer_data import TransformerData
