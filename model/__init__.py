@@ -2,3 +2,4 @@ from .simple_model import SimpleModel
 from .unconstrained_diffusion_model import UnconstrainedDiffusionModel
 from .conditional_diffusion_model import ConditionalDiffusionModel
 from .transformer_model import TransformerModel
+from .rl_planner_model import RLPlannerModel

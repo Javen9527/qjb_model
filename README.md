@@ -10,17 +10,20 @@ qjb_model/
 │   ├── simple_model.py           # 简单 MLP 回归
 │   ├── transformer_model.py      # Transformer (Attention is All You Need)
 │   ├── unconstrained_diffusion_model.py   # 无约束扩散模型 (DDPM)
-│   └── conditional_diffusion_model.py     # 条件扩散模型
+│   ├── conditional_diffusion_model.py     # 条件扩散模型
+│   └── rl_planner_model.py                # RL 规划模型
 ├── data/                  # 数据模块
 │   ├── simple_data.py
 │   ├── transformer_data.py
 │   ├── unconstrained_diffusion_data.py
-│   └── conditional_diffusion_data.py
+│   ├── conditional_diffusion_data.py
+│   └── rl_planner_data.py
 ├── config/                # 配置文件
 │   ├── simple.yaml
 │   ├── transformer.yaml
 │   ├── unconstrained_diffusion.yaml
-│   └── conditional_diffusion.yaml
+│   ├── conditional_diffusion.yaml
+│   └── rl_planner.yaml
 ├── launch.py              # 入口
 └── config/logging_config.py
 ```
@@ -39,6 +42,7 @@ qjb_model/
 | **TransformerModel** | Transformer 编码器-解码器，序列到序列 | `config/transformer.yaml` |
 | **UnconstrainedDiffusionModel** | 无约束扩散 (DDPM)，图像生成 | `config/unconstrained_diffusion.yaml` |
 | **ConditionalDiffusionModel** | 条件扩散，以类别为条件生成 | `config/conditional_diffusion.yaml` |
+| **RLPlannerModel** | RL 规划闭环 rollout 模型 | `config/rl_planner.yaml` |
 
 ## 使用方法
 
@@ -56,6 +60,9 @@ uv run python launch.py fit --config config/unconstrained_diffusion.yaml
 
 # 条件扩散（数据需子目录结构：root/class_0/img.png）
 uv run python launch.py fit --config config/conditional_diffusion.yaml
+
+# RL 规划
+uv run python launch.py fit --config config/rl_planner.yaml
 ```
 
 ### 测试
@@ -84,6 +91,14 @@ uv run python launch.py predict --config config/<config>.yaml --ckpt_path <path_
 
 - **无约束**：`train_data_path` 等可为图片文件夹（PNG/JPG 等）或 `.pt`/`.npy`
 - **条件**：文件夹需子目录结构（子目录名 = 类别），或 `.pt` 含 `x` 与 `y`
+
+### RL Planner
+
+- 默认使用合成数据（`ego_curr_status/agent_status/laneline_pts`）
+- 支持 `.pt/.pth` 文件输入
+- 文件格式支持：
+  - `list[{"model_input": {...}}]`
+  - `dict(ego_curr_status=..., agent_status=..., laneline_pts=..., timestamp=...)`
 
 ## 日志
 

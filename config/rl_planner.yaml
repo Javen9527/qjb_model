@@ -1,0 +1,49 @@
+trainer:
+  max_epochs: 10
+  accelerator: "cpu"
+  log_every_n_steps: 10
+  default_root_dir: "./logs_rl_planner"
+  enable_checkpointing: true
+
+  callbacks:
+    - class_path: pytorch_lightning.callbacks.ModelCheckpoint
+      init_args:
+        dirpath: "./logs_rl_planner/checkpoints"
+        filename: "rl_planner_best_{epoch}_{train_loss:.4f}"
+        monitor: "train_loss"
+        mode: "min"
+        save_top_k: 1
+        save_last: true
+        every_n_epochs: 1
+
+model:
+  class_path: model.RLPlannerModel
+  init_args:
+    lr: 0.001
+    warmup_steps: 100
+    sample_number: 4
+    closed_loop: true
+    base_dt: 0.2
+    expected_interval_time: 0.6
+    sim_window_seconds: 5.0
+    closed_time_horizon: 10
+    debug: false
+    weight_decay: 0.0001
+
+data:
+  class_path: data.RLPlannerData
+  init_args:
+    batch_size: 16
+    num_workers: 0
+    train_samples: 1024
+    test_samples: 128
+    predict_samples: 64
+    num_agents: 10
+    num_laneline_pts: 50
+    ego_dim: 5
+    agent_dim: 6
+    seed: 42
+    # 可选：使用 .pt/.pth 文件替换合成数据
+    # train_data_path: null
+    # test_data_path: null
+    # predict_data_path: null
