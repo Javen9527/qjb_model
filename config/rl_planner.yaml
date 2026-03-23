@@ -43,7 +43,6 @@ data:
     ego_dim: 5
     agent_dim: 6
     seed: 42
-    # 可选：使用 .pt/.pth 文件替换合成数据
     # train_data_path: null
     # test_data_path: null
     # predict_data_path: null
